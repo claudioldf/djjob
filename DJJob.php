@@ -359,7 +359,7 @@ class DJWorker extends DJBase {
         $this->runUpdate("
             UPDATE " . self::$jobsTable . "
             SET locked_at = NULL, locked_by = NULL
-            WHERE locked_by = ?",
+            WHERE db_name = database() AND locked_by = ?",
             array($this->name)
         );
     }
@@ -382,6 +382,7 @@ class DJWorker extends DJBase {
             AND    (locked_at IS NULL OR locked_by = ?)
             AND    failed_at IS NULL
             AND    attempts < ?
+            AND    db_name = database()
             ORDER BY created_at DESC
             LIMIT  10
         ", array($this->queue, $this->name, $this->max_attempts));
@@ -538,7 +539,7 @@ class DJJob extends DJBase {
         $lock = $this->runUpdate("
             UPDATE " . self::$jobsTable . "
             SET    locked_at = NOW(), locked_by = ?
-            WHERE  id = ? AND (locked_at IS NULL OR locked_by = ?) AND failed_at IS NULL
+            WHERE db_name = database() AND id = ? AND (locked_at IS NULL OR locked_by = ?) AND failed_at IS NULL
         ", array($this->worker_name, $this->job_id, $this->worker_name));
 
         if (!$lock) {
@@ -556,7 +557,7 @@ class DJJob extends DJBase {
         $this->runUpdate("
             UPDATE " . self::$jobsTable . "
             SET locked_at = NULL, locked_by = NULL
-            WHERE id = ?",
+            WHERE db_name = database() AND id = ?",
             array($this->job_id)
         );
     }
@@ -566,7 +567,7 @@ class DJJob extends DJBase {
      */
     public function finish() {
         $this->runUpdate(
-            "DELETE FROM " . self::$jobsTable . " WHERE id = ?",
+            "DELETE FROM " . self::$jobsTable . " WHERE db_name = database() AND id = ?",
             array($this->job_id)
         );
         $this->log("[JOB] completed job::{$this->job_id}", self::INFO);
@@ -584,7 +585,7 @@ class DJJob extends DJBase {
             SET attempts = attempts + 1,
                 failed_at = IF(attempts >= ?, NOW(), NULL),
                 error = IF(attempts >= ?, ?, NULL)
-            WHERE id = ?",
+            WHERE db_name = database() AND id = ?",
             array(
                 $this->max_attempts,
                 $this->max_attempts,
@@ -611,7 +612,7 @@ class DJJob extends DJBase {
             UPDATE " . self::$jobsTable . "
             SET run_at = DATE_ADD(NOW(), INTERVAL ? SECOND),
                 attempts = attempts + 1
-            WHERE id = ?",
+            WHERE db_name = database() AND id = ?",
             array(
               $delay,
               $this->job_id
@@ -627,7 +628,7 @@ class DJJob extends DJBase {
      */
     public function getHandler() {
         $rs = $this->runQuery(
-            "SELECT handler FROM " . self::$jobsTable . " WHERE id = ?",
+            "SELECT handler FROM " . self::$jobsTable . " WHERE db_name = database() AND id = ?",
             array($this->job_id)
         );
         foreach ($rs as $r) return unserialize($r["handler"]);
@@ -641,7 +642,7 @@ class DJJob extends DJBase {
      */
     public function getAttempts() {
         $rs = $this->runQuery(
-            "SELECT attempts FROM " . self::$jobsTable . " WHERE id = ?",
+            "SELECT attempts FROM " . self::$jobsTable . " WHERE db_name = database() AND id = ?",
             array($this->job_id)
         );
         foreach ($rs as $r) return $r["attempts"];
@@ -659,7 +660,7 @@ class DJJob extends DJBase {
      */
     public static function enqueue($handler, $queue = "default", $run_at = null) {
         $affected = self::runUpdate(
-            "INSERT INTO " . self::$jobsTable . " (handler, queue, run_at, created_at) VALUES(?, ?, ?, NOW())",
+            "INSERT INTO " . self::$jobsTable . " (handler, queue, run_at, created_at, db_name) VALUES(?, ?, ?, NOW(), database())",
             array(serialize($handler), (string) $queue, $run_at)
         );
 
@@ -681,8 +682,8 @@ class DJJob extends DJBase {
      * @return bool
      */
     public static function bulkEnqueue($handlers, $queue = "default", $run_at = null) {
-        $sql = "INSERT INTO " . self::$jobsTable . " (handler, queue, run_at, created_at) VALUES";
-        $sql .= implode(",", array_fill(0, count($handlers), "(?, ?, ?, NOW())"));
+        $sql = "INSERT INTO " . self::$jobsTable . " (handler, queue, run_at, created_at, db_name) VALUES";
+        $sql .= implode(",", array_fill(0, count($handlers), "(?, ?, ?, NOW(), database())"));
 
         $parameters = array();
         foreach ($handlers as $handler) {
@@ -714,7 +715,7 @@ class DJJob extends DJBase {
         $rs = self::runQuery("
             SELECT COUNT(*) as total, COUNT(failed_at) as failed, COUNT(locked_at) as locked
             FROM `" . self::$jobsTable . "`
-            WHERE queue = ?
+            WHERE db_name = database() AND queue = ?
         ", array($queue));
         $rs = $rs[0];
 
