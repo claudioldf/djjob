@@ -34,8 +34,13 @@ CREATE TABLE `jobs` (
 `locked_by` VARCHAR(255) NULL,
 `failed_at` DATETIME NULL,
 `error` TEXT NULL,
-`created_at` DATETIME NOT NULL
+`created_at` DATETIME NOT NULL,
+`db_name` VARCHAR(255) NOT NULL
 ) ENGINE = INNODB;
+ALTER TABLE jobs ADD INDEX `locked_at` (`locked_at` DESC);
+ALTER TABLE jobs ADD INDEX `locked_by` (`locked_by` DESC);
+ALTER TABLE jobs ADD INDEX `failed_at` (`failed_at` DESC);
+ALTER TABLE jobs ADD INDEX `db_name` (`db_name` DESC);
 ```
 
 > You may need to use BLOB as the column type for `handler` if you are passing in serialized blobs of data instead of record ids. For more information, see [this link](https://php.net/manual/en/function.serialize.php#refsect1-function.serialize-returnvalues) This may be the case for errors such as the following: `unserialize(): Error at offset 2010 of 2425 bytes`
