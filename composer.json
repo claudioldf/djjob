@@ -1,5 +1,5 @@
 {
-    "name": "seatgeek/djjob",
+    "name": "claudioldf/djjob",
     "type": "library",
     "description": "Allows PHP web applications to process long-running tasks asynchronously",
     "keywords": ["PHP","asynchronous", "task","job"],
